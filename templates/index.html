@@ -1,0 +1,165 @@
+<html>
+
+<head>
+<link rel="stylesheet" href="https://storage.googleapis.com/code.getmdl.io/1.0.6/material.indigo-red.min.css">
+<script src="https://storage.googleapis.com/code.getmdl.io/1.0.6/material.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<link rel="stylesheet" href="style/uploads.css">
+</head>
+
+<body style="padding: 20px;">
+
+<div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+
+	<header class="mdl-layout__header" >
+		<div class="mdl-layout__header-row">
+	
+			<span class="mdl-layout-title">Colorize a Grayscale Image</span>
+			
+			<div class="mdl-layout-spacer"></div>
+
+		</div>
+	</header>
+</div>
+
+
+<div class="page_content">
+	<div>
+	<br>
+	<br>
+	<br>
+	<br>
+	</div>
+
+<div class="file_input_div">
+	
+	<div class="file_input">
+		<label class="image_input_button mdl-button mdl-js-button mdl-button--fab mdl-button--mini-fab mdl-js-ripple-effect mdl-button--primary mdl-button--colored">
+			<i class="material-icons">file_upload</i>
+			<input id="choose-file" class="none" type="file"/>
+		</label>
+	</div>
+
+	<div id="file_input_text_div" class="mdl-textfield mdl-js-textfield textfield-demo"><input class="file_input_text mdl-textfield__input" type="text" disabled readonly id="file_input_text"/>
+		<label class="mdl-textfield__label" for="file_input_text"></label>
+
+	</div>
+	
+
+</div>
+
+<div id="image_div">
+
+	<img src="" height="480" id="preview"/>
+	<img src="" height="480" id="result"/>
+</div>
+
+
+<div>
+	<div id="progress"></div>
+
+	<script src="//cdnjs.cloudflare.com/ajax/libs/nanobar/0.2.1/nanobar.min.js"></script>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+	<script>
+
+	function read_file(evt){
+		var f = evt.target.files[0];
+		if(f){
+			var r = new FileReader();
+			var preview = document.getElementById('preview');
+
+			r.onload= function(e){
+				preview.src = e.target.result;
+//				var contents = e.target.result;
+			};
+			//TODO: should not be readAsText
+			r.readAsDataURL(f);
+			
+			console.log(preview.value);
+			start_colorizer(preview.value);
+
+		}
+
+	}
+
+	var fileInputTextDiv = document.getElementById('file_input_text_div');
+	var fileInput = document.getElementById('choose-file');
+	var fileInputText = document.getElementById('file_input_text');
+	fileInput.addEventListener('change', read_file);
+
+
+	function start_colorizer(){
+		
+		contents = '';
+
+		div = $('<div class="progress"><div></div><div>0%</div><div>...</div><div>&nbsp;</div></div>');
+		$('#progress').append(div);
+
+		var nanobar = new Nanobar({bg: '#44f', target: div[0].childNodes[0] });
+
+		$.ajax({ type: 'POST',
+			 url: '/color',
+			 data: JSON.stringify(contents, null, '\t'),
+			 contentType: 'application/json;charset=UTF-8',
+			 success: function(data, status, request){
+			 	status_url= request.getResponseHeader('Location');
+				update_progress(status_url, nanobar, div[0]);},
+
+			 error: function(){ alert('Unexpected error');}
+	});	
+
+	}
+
+	function update_progress(status_url, nanobar, status_div){
+	
+		
+		$.getJSON(status_url, function(data){
+				percent = parseInt(data['current']*100 / data['total']);
+				nanobar.go(percent);
+				$(status_div.childNodes[1]).text(percent+'%');
+				$(status_div.childNodes[2]).text(data['status']);
+				if (data['state'] != "PENDING" && data["state"] != "PROGRESS") {
+				
+				if(data['state'] == "SUCCESS"){
+				$(status_div.childNodes[3]).text("");
+				
+				var $input = $('<input type="button" value="Download results" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored"/>');
+				$input.appendTo($(status_div));
+				$input.click(function() {
+					var blob = new Blob([data['result']], {type: "text/plain"}  );
+					var elem = window.document.createElement('a');
+					elem.href = window.URL.createObjectURL(blob);
+					elem.download= "results.jpg";
+					document.body.appendChild(elem);
+					elem.click();
+					});
+
+
+
+				}
+				else{
+				$(status_div.childNodes[3]).text('Result: '+  data['state']);}
+
+				}
+				else {
+				setTimeout(function(){
+					 update_progress(status_url, nanobar, status_div);
+					}, 2000);
+				
+				}
+
+				});
+	
+	}
+
+
+	$(function(){
+			$('#start-bg-job').click(start_colorizer);
+			});
+
+	</script>
+
+</div>
+</div>
+</body>
+</html>
